@@ -3,32 +3,23 @@ import os
 import logging
 from aiogram import Bot, Dispatcher, executor, types
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
-from aiogram.contrib.fsm_storage.memory import MemoryStorage
-from aiogram.dispatcher import FSMContext
-from aiogram.dispatcher.filters.state import State, StatesGroup
 from datetime import datetime
 
-# Token va admin ID
-BOT_TOKEN = os.getenv("BOT_TOKEN", "YOUR_BOT_TOKEN")
-ADMIN_ID = int(os.getenv("ADMIN_ID", "123456789"))
+BOT_TOKEN = os.getenv("BOT_TOKEN", "8097862138:AAGTLV5n42GHd8ak5naciQq8oCm-epxFvNk")
+ADMIN_ID = int(os.getenv("ADMIN_ID", "1350513135"))
 
-# Bot va FSM xotira
 bot = Bot(token="8097862138:AAGTLV5n42GHd8ak5naciQq8oCm-epxFvNk")
-storage = MemoryStorage()
-dp = Dispatcher(bot, storage=storage)
+dp = Dispatcher(bot)
 
-# Fayl nomlari
 USERS_FILE = "users.json"
 LESSONS_FILE = "lessons.json"
 PURCHASES_FILE = "purchases.json"
 
-# Fayllar mavjud emas bo‘lsa, yaratamiz
 for file in [USERS_FILE, LESSONS_FILE, PURCHASES_FILE]:
     if not os.path.exists(file):
         with open(file, "w") as f:
             json.dump([], f)
 
-# JSON funksiyalar
 def load_json(path):
     with open(path, "r") as f:
         return json.load(f)
@@ -37,12 +28,6 @@ def save_json(path, data):
     with open(path, "w") as f:
         json.dump(data, f, indent=2)
 
-# 📋 Ro‘yxatdan o‘tish holatlari
-class Register(StatesGroup):
-    name = State()
-    age = State()
-
-# /start komandasi
 @dp.message_handler(commands=["start"])
 async def start(message: types.Message):
     users = load_json(USERS_FILE)
@@ -53,7 +38,6 @@ async def start(message: types.Message):
     else:
         await show_main_menu(message)
 
-# 📝 Roʻyxatdan oʻtish tugmasi
 @dp.message_handler(lambda msg: msg.text == "📝 Roʻyxatdan oʻtish")
 async def register(message: types.Message):
     users = load_json(USERS_FILE)
@@ -61,27 +45,23 @@ async def register(message: types.Message):
         await message.answer("Siz allaqachon ro'yxatdan o'tgansiz.")
         return
     await message.answer("Ismingizni kiriting:")
-    await Register.name.set()
+    dp.register_message_handler(get_name, state="awaiting_name")
 
-# 👤 Ismni qabul qilish
-@dp.message_handler(state=Register.name)
-async def get_name(message: types.Message, state: FSMContext):
-    await state.update_data(name=message.text.strip())
+async def get_name(message: types.Message):
+    name = message.text.strip()
+    dp.current_state().finish()
     await message.answer("Yoshingizni kiriting:")
-    await Register.age.set()
+    dp.register_message_handler(lambda msg: save_user(msg, name), state="awaiting_age")
 
-# 🔢 Yoshni qabul qilish
-@dp.message_handler(state=Register.age)
-async def save_user(message: types.Message, state: FSMContext):
+async def save_user(message: types.Message, name):
     try:
         age = int(message.text.strip())
     except ValueError:
-        await message.answer("Iltimos, yoshni raqam bilan kiriting:")
+        await message.answer("Iltimos, raqam ko'rinishida yosh kiriting:")
         return
-    data = await state.get_data()
     user = {
         "user_id": message.from_user.id,
-        "name": data['name'],
+        "name": name,
         "age": age,
         "username": message.from_user.username,
         "date": datetime.now().strftime("%Y-%m-%d")
@@ -89,18 +69,16 @@ async def save_user(message: types.Message, state: FSMContext):
     users = load_json(USERS_FILE)
     users.append(user)
     save_json(USERS_FILE, users)
-    await state.finish()
-    await message.answer("✅ Ro'yxatdan o'tish muvaffaqiyatli yakunlandi.")
+    dp.current_state().finish()
+    await message.answer("Ro'yxatdan o'tish muvaffaqiyatli yakunlandi.")
     await show_main_menu(message)
 
-# 📋 Asosiy menyu
-async def show_main_menu(message: types.Message):
+async def show_main_menu(message):
     markup = ReplyKeyboardMarkup(resize_keyboard=True)
     markup.row("📚 Darslar", "📘 Mening darslarim")
     markup.add("🧾 Toʻlov chekini yuborish", "❓ Yordam")
     await message.answer("Kerakli boʻlimni tanlang:", reply_markup=markup)
 
-# 📚 Darslar
 @dp.message_handler(lambda msg: msg.text == "📚 Darslar")
 async def show_lessons(message: types.Message):
     lessons = load_json(LESSONS_FILE)
@@ -112,7 +90,6 @@ async def show_lessons(message: types.Message):
         markup.add(InlineKeyboardButton(f"{l['name']} - {l['price']} so'm", callback_data=f"lesson_{l['id']}"))
     await message.answer("Quyidagi darslardan birini tanlang:", reply_markup=markup)
 
-# ✅ Dars tanlangandan so‘ng
 @dp.callback_query_handler(lambda c: c.data.startswith("lesson_"))
 async def lesson_selected(callback: types.CallbackQuery):
     lesson_id = callback.data.split("_")[1]
@@ -124,33 +101,31 @@ async def lesson_selected(callback: types.CallbackQuery):
         "date": datetime.now().strftime("%Y-%m-%d")
     })
     save_json(PURCHASES_FILE, purchases)
-    await callback.message.answer("✅ Dars tanlandi. Endi toʻlovni amalga oshiring va chekni yuboring.")
+    await callback.message.answer("Dars tanlandi. Endi to'lovni amalga oshiring va chekni yuboring.")
     await show_main_menu(callback.message)
 
-# 🧾 Chek yuborish
 @dp.message_handler(content_types=types.ContentType.PHOTO)
 async def receive_payment(message: types.Message):
     purchases = load_json(PURCHASES_FILE)
     pending = [p for p in purchases if p["user_id"] == message.from_user.id and p["status"] == "pending"]
     if not pending:
-        await message.answer("⚠️ Avval dars tanlang.")
+        await message.answer("Avval dars tanlang.")
         return
     photo = message.photo[-1]
     file_id = photo.file_id
     caption = (
-        f" Yangi to'lov\n"
-        f" User: {message.from_user.full_name}\n"
-        f" ID: {message.from_user.id}"
-    )
+    f" Yangi to'lov\n"
+    f"User: {message.from_user.full_name}\n"
+    f"ID: {message.from_user.id}"
+)
     markup = InlineKeyboardMarkup()
     markup.add(
         InlineKeyboardButton("✅ Tasdiqlash", callback_data=f"approve_{message.from_user.id}"),
         InlineKeyboardButton("❌ Rad etish", callback_data=f"reject_{message.from_user.id}")
     )
     await bot.send_photo(chat_id=ADMIN_ID, photo=file_id, caption=caption, reply_markup=markup)
-    await message.answer("✅ Toʻlov cheki yuborildi. Admin tasdiqlashini kuting.")
+    await message.answer("Toʻlov cheki yuborildi. Admin tasdiqlashini kuting.")
 
-# ✅/❌ Admin qarori
 @dp.callback_query_handler(lambda c: c.data.startswith("approve_") or c.data.startswith("reject_"))
 async def handle_admin_decision(callback: types.CallbackQuery):
     action, user_id = callback.data.split("_")
@@ -163,12 +138,11 @@ async def handle_admin_decision(callback: types.CallbackQuery):
             updated = True
     if updated:
         save_json(PURCHASES_FILE, purchases)
-        await bot.send_message(user_id, "🧾 Toʻlovingiz admin tomonidan " + ("✅ tasdiqlandi" if action == "approve" else "❌ rad etildi"))
-        await callback.answer("✅ Foydalanuvchiga xabar yuborildi.")
+        await bot.send_message(user_id, "Toʻlovingiz admin tomonidan " + ("✅ tasdiqlandi" if action == "approve" else "❌ rad etildi"))
+        await callback.answer("Foydalanuvchiga xabar yuborildi.")
     else:
-        await callback.answer("⚠️ Hech qanday to'lov topilmadi.")
+        await callback.answer("Hech qanday to'lov topilmadi.")
 
-# 📘 Mening darslarim
 @dp.message_handler(lambda msg: msg.text == "📘 Mening darslarim")
 async def show_my_lessons(message: types.Message):
     purchases = load_json(PURCHASES_FILE)
@@ -182,14 +156,65 @@ async def show_my_lessons(message: types.Message):
         lesson = next((l for l in lessons if l["id"] == p["lesson_id"]), None)
         if lesson:
             markup.add(InlineKeyboardButton(f"{lesson['name']}", url=lesson["video"]))
-    await message.answer("🎓 Sotib olingan darslaringiz:", reply_markup=markup)
+    await message.answer("Sotib olingan darslaringiz:", reply_markup=markup)
 
-# ❓ Yordam
 @dp.message_handler(lambda msg: msg.text == "❓ Yordam")
 async def help_message(message: types.Message):
-    await message.answer("❓ Yordam uchun admin bilan bog‘laning.")
+    await message.answer("Yordam uchun admin bilan bog‘laning.")
 
-# ▶️ Botni ishga tushurish
+# Admin commands
+@dp.message_handler(commands=["add_lesson"])
+async def admin_add_lesson(message: types.Message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    await message.answer("Yangi dars nomini yuboring:")
+    dp.register_message_handler(get_lesson_name, state="awaiting_lesson_name")
+
+async def get_lesson_name(message: types.Message):
+    name = message.text.strip()
+    dp.current_state().finish()
+    await message.answer("Narxini so'mda kiriting:")
+    dp.register_message_handler(lambda msg: get_lesson_price(msg, name), state="awaiting_lesson_price")
+
+async def get_lesson_price(message: types.Message, name):
+    try:
+        price = int(message.text.strip())
+    except ValueError:
+        await message.answer("Raqam kiriting:")
+        return
+    await message.answer("Video havolasini kiriting:")
+    dp.register_message_handler(lambda msg: save_lesson(msg, name, price), state="awaiting_lesson_video")
+
+async def save_lesson(message: types.Message, name, price):
+    video = message.text.strip()
+    lessons = load_json(LESSONS_FILE)
+    lessons.append({"id": str(len(lessons)+1), "name": name, "price": price, "video": video})
+    save_json(LESSONS_FILE, lessons)
+    await message.answer("Dars muvaffaqiyatli qo'shildi!")
+
+@dp.message_handler(commands=["users"])
+async def admin_users(message: types.Message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    users = load_json(USERS_FILE)
+    report = "Foydalanuvchilar:\n"
+    for u in users:
+        report += f"{u['name']} (@{u['username']}) - {u['age']} yosh\n"
+    await message.answer(report)
+
+@dp.message_handler(commands=["stats"])
+async def admin_stats(message: types.Message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    users = load_json(USERS_FILE)
+    lessons = load_json(LESSONS_FILE)
+    purchases = load_json(PURCHASES_FILE)
+    total = sum(
+        next((int(l['price']) for l in lessons if l['id'] == p['lesson_id']), 0)
+        for p in purchases if p['status'] == "tasdiqlangan"
+    )
+    await message.answer(f"Foydalanuvchilar soni: {len(users)}\nDarslar soni: {len(lessons)}\nUmumiy tushum: {total} so'm")
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     executor.start_polling(dp, skip_updates=True)
