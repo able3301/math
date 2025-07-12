@@ -115,12 +115,10 @@ async def receive_payment(message: types.Message):
     photo = message.photo[-1]
     file_id = photo.file_id
     caption = (
-        f"🧾 Yangi to'lov
-"
-        f"User: {message.from_user.full_name}
-"
-        f"ID: {message.from_user.id}"
-    )
+    f" Yangi to'lov\n"
+    f"User: {message.from_user.full_name}\n"
+    f"ID: {message.from_user.id}"
+)
     markup = InlineKeyboardMarkup()
     markup.add(
         InlineKeyboardButton("✅ Tasdiqlash", callback_data=f"approve_{message.from_user.id}"),
