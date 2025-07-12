@@ -6,22 +6,17 @@ from aiogram import Bot, Dispatcher, executor, types
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils.callback_data import CallbackData
 from datetime import datetime
-from uuid import uuid4
 
-# ENV VARIABLES
 BOT_TOKEN = os.getenv("BOT_TOKEN", "YOUR_BOT_TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID", "123456789"))
 
-# INIT
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(bot)
 
-# File paths
 USERS_FILE = "users.json"
 LESSONS_FILE = "lessons.json"
 PURCHASES_FILE = "purchases.json"
 
-# Ensure data files exist
 for file in [USERS_FILE, LESSONS_FILE, PURCHASES_FILE]:
     if not os.path.exists(file):
         with open(file, "w") as f:
@@ -35,7 +30,6 @@ def save_json(path, data):
     with open(path, "w") as f:
         json.dump(data, f, indent=2)
 
-# START
 @dp.message_handler(commands=["start"])
 async def start(message: types.Message):
     users = load_json(USERS_FILE)
@@ -112,7 +106,7 @@ async def lesson_selected(callback: types.CallbackQuery):
     await callback.message.answer("Dars tanlandi. Endi to'lovni amalga oshiring va chekni yuboring.")
     await show_main_menu(callback.message)
 
-@dp.message_handler(lambda msg: msg.text == "🧾 Toʻlov chekini yuborish", content_types=types.ContentType.PHOTO)
+@dp.message_handler(content_types=types.ContentType.PHOTO)
 async def receive_payment(message: types.Message):
     purchases = load_json(PURCHASES_FILE)
     pending = [p for p in purchases if p["user_id"] == message.from_user.id and p["status"] == "pending"]
@@ -121,9 +115,13 @@ async def receive_payment(message: types.Message):
         return
     photo = message.photo[-1]
     file_id = photo.file_id
-    caption = f"🧾 Yangi to'lov
-User: {message.from_user.full_name}
-ID: {message.from_user.id}"
+    caption = (
+        f"🧾 Yangi to'lov
+"
+        f"User: {message.from_user.full_name}
+"
+        f"ID: {message.from_user.id}"
+    )
     markup = InlineKeyboardMarkup()
     markup.add(
         InlineKeyboardButton("✅ Tasdiqlash", callback_data=f"approve_{message.from_user.id}"),
@@ -171,4 +169,3 @@ async def help_message(message: types.Message):
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     executor.start_polling(dp, skip_updates=True)
-# Main bot logic will be here
