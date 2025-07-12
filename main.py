@@ -9,7 +9,7 @@ from datetime import datetime
 BOT_TOKEN = os.getenv("BOT_TOKEN", "YOUR_BOT_TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID", "123456789"))
 
-bot = Bot(token=BOT_TOKEN)
+bot = Bot(token="8097862138:AAGTLV5n42GHd8ak5naciQq8oCm-epxFvNk")
 dp = Dispatcher(bot)
 
 USERS_FILE = "users.json"
