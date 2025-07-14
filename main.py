@@ -9,8 +9,8 @@ from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 from datetime import datetime
 
-BOT_TOKEN = os.getenv("BOT_TOKEN", "YOUR_BOT_TOKEN")
-ADMIN_ID = int(os.getenv("ADMIN_ID", "123456789"))
+BOT_TOKEN = os.getenv("BOT_TOKEN", "8097862138:AAGTLV5n42GHd8ak5naciQq8oCm-epxFvNk")
+ADMIN_ID = int(os.getenv("ADMIN_ID", "1350513135"))
 
 bot = Bot(token=BOT_TOKEN)
 storage = MemoryStorage()
